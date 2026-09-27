@@ -20,7 +20,7 @@
   let activeTakeover = null;
 
   function log(...args) {
-    console.log(LOG_PREFIX, ...args);
+    console.debug(LOG_PREFIX, ...args);
   }
 
   function warn(...args) {
@@ -211,10 +211,12 @@
         return null;
       }
 
-      // Classic videojs-vr uses .vjs-button-vr inside the player. The WebXR
-      // fork (including Stornaway/videojs-vr-xr) creates Three.js VRButton
-      // with id=VRButton and appends it directly to document.body.
-      const button = eventTarget.closest('.vjs-button-vr, #VRButton');
+      // Legacy builds use several button class names. Classic videojs-vr uses
+      // .vjs-button-vr, some forks/themes use .vjs-vr / .vjs-icon-vr, and the
+      // WebXR fork can create a detached Three.js button with id=VRButton.
+      const button = eventTarget.closest(
+        '.vjs-button-vr, .vjs-vr, .vjs-icon-vr, #VRButton'
+      );
       if (!button) {
         return null;
       }
@@ -439,8 +441,5 @@
     }
   });
 
-  log('installed in MAIN world', {
-    url: location.href,
-    frame: window === window.top ? 'top' : 'subframe'
-  });
+  log('installed');
 })();
