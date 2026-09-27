@@ -51,6 +51,7 @@
       case 'EAC_LR':
       case '180':
       case '180_LR':
+      case '180_TB':
       case '180_MONO':
         return upper;
       case 'AUTO':
@@ -129,16 +130,19 @@
     return null;
   }
 
-  function getVideoJsVrProjection(player, root, video) {
-    let vr = null;
-
+  function getVrInstance(player) {
     try {
       if (player && typeof player.vr === 'function') {
-        vr = player.vr();
+        return player.vr();
       }
     } catch {
       // Some old plugin versions can throw while the player is still starting.
     }
+    return null;
+  }
+
+  function getVideoJsVrProjection(player, root, video, knownVr = null) {
+    const vr = knownVr || getVrInstance(player);
 
     const candidates = [
       vr?.currentProjection_,
@@ -161,6 +165,44 @@
     return null;
   }
 
+  function findPlayerForDetachedVrButton(button) {
+    const videojs = window.videojs;
+    if (!videojs || typeof videojs.getPlayers !== 'function') {
+      return null;
+    }
+
+    try {
+      const players = Object.values(videojs.getPlayers() || {}).filter(Boolean);
+      let soleVrCandidate = null;
+      let candidateCount = 0;
+
+      for (const player of players) {
+        const vr = getVrInstance(player);
+        if (!vr) {
+          continue;
+        }
+
+        // videojs-vr-xr's Three.js VRButton is appended directly to <body>,
+        // but the plugin keeps the exact element on vrButton.
+        if (vr.vrButton === button) {
+          return {player, vr};
+        }
+
+        // Some bundled builds do not expose vrButton. If there is only one
+        // active VR plugin on the page, it is still a safe fallback for the
+        // globally appended #VRButton.
+        if (vr.currentProjection_ || vr.defaultProjection_ || vr.renderer) {
+          soleVrCandidate = {player, vr};
+          candidateCount++;
+        }
+      }
+
+      return candidateCount === 1 ? soleVrCandidate : null;
+    } catch {
+      return null;
+    }
+  }
+
   const videoJsVrAdapter = {
     name: 'videojs-vr',
 
@@ -169,23 +211,63 @@
         return null;
       }
 
-      const button = eventTarget.closest('.vjs-button-vr');
+      // Classic videojs-vr uses .vjs-button-vr inside the player. The WebXR
+      // fork (including Stornaway/videojs-vr-xr) creates Three.js VRButton
+      // with id=VRButton and appends it directly to document.body.
+      const button = eventTarget.closest('.vjs-button-vr, #VRButton');
       if (!button) {
         return null;
       }
 
-      const root = button.closest('.video-js');
-      const video =
+      let root = button.closest('.video-js');
+      let video =
           root?.querySelector('video') ||
-          button.closest('video') ||
-          document.querySelector('.video-js video');
+          button.closest('video');
+      let player = video instanceof HTMLVideoElement
+          ? getVideoJsPlayer(root, video)
+          : null;
+      let vr = getVrInstance(player);
+
+      if (button.id === 'VRButton') {
+        const detached = findPlayerForDetachedVrButton(button);
+        if (detached) {
+          player = detached.player;
+          vr = detached.vr;
+          root =
+              (typeof player.el === 'function' ? player.el() : player.el_) ||
+              root;
+          video =
+              (typeof vr?.getVideoEl_ === 'function' ? vr.getVideoEl_() : null) ||
+              root?.querySelector?.('video') ||
+              null;
+        }
+      }
 
       if (!(video instanceof HTMLVideoElement)) {
+        // Last-resort DOM fallback is intentionally only accepted when there
+        // is exactly one Video.js video on the page.
+        const videos = [...document.querySelectorAll('.video-js video')]
+          .filter((element) => element instanceof HTMLVideoElement);
+        if (videos.length === 1) {
+          video = videos[0];
+          root = video.closest('.video-js');
+          player = player || getVideoJsPlayer(root, video);
+          vr = vr || getVrInstance(player);
+        }
+      }
+
+      if (!(video instanceof HTMLVideoElement)) {
+        warn('videojs-vr: VR button found but underlying video could not be identified');
         return null;
       }
 
-      const player = getVideoJsPlayer(root, video);
-      const projection = getVideoJsVrProjection(player, root, video);
+      const projection = getVideoJsVrProjection(player, root, video, vr);
+
+      log('videojs-vr: intercepted VR button', {
+        button: button.id || button.className,
+        projection,
+        detachedWebXrButton: button.id === 'VRButton'
+      });
 
       return {
         adapter: this,
@@ -193,6 +275,7 @@
         root,
         video,
         player,
+        vr,
         projection
       };
     }
