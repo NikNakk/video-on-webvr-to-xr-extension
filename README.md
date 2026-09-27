@@ -10,7 +10,7 @@ macOS Chromium/OpenXR work.
 
 ### videojs-vr
 
-When the user presses videojs-vr's `.vjs-button-vr` button, the extension:
+When the user presses either classic videojs-vr's `.vjs-button-vr` control or the WebXR fork's detached Three.js `#VRButton`, the extension:
 
 1. finds the underlying `HTMLVideoElement`;
 2. reads videojs-vr's resolved projection from `player.vr().currentProjection_`
@@ -31,6 +31,7 @@ Supported videojs-vr projections:
 - `360_TB`
 - `180_MONO`
 - `180` / `180_LR`
+- `180_TB`
 - `EAC`
 - `EAC_LR`
 
@@ -69,6 +70,7 @@ Supported values are:
 180_MONO
 180
 180_LR
+180_TB
 EAC
 EAC_LR
 ```
