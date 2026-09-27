@@ -20,7 +20,7 @@
   let activeTakeover = null;
 
   function log(...args) {
-    console.debug(LOG_PREFIX, ...args);
+    console.log(LOG_PREFIX, ...args);
   }
 
   function warn(...args) {
@@ -439,5 +439,8 @@
     }
   });
 
-  log('installed');
+  log('installed in MAIN world', {
+    url: location.href,
+    frame: window === window.top ? 'top' : 'subframe'
+  });
 })();
