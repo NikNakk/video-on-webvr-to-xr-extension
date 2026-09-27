@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "WebVR Video to XR",
+  "version": "0.1.0",
+  "description": "Bridges legacy WebVR video players to Chromium's native immersive OpenXR video path.",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/main.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_origin_as_fallback": true,
+      "world": "MAIN"
+    }
+  ]
+}
